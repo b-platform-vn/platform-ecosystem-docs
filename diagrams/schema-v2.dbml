@@ -1,7 +1,7 @@
 
 Project EcomUniversalPlatform_v2 {
   database_type: 'MSSQL'
-  Note: 'Mô hình _v2 gồm 20 bảng: 8 bảng Auth & Org, 4 bảng Cart (theo tblBaoGia), 2 bảng OrderQuote (rút gọn), 6 bảng Order.'
+  Note: 'Mô hình _v2 gồm 21 bảng: 8 bảng Auth & Org, 4 bảng Cart (theo tblBaoGia), 2 bảng OrderQuote (rút gọn), 6 bảng Order, 1 bảng AuditLogs.'
 }
 
 // ============================================================================
@@ -17,6 +17,8 @@ Table tblAccount_v2 [headercolor: #1f77b4] {
   IsEmailVerified bit [not null, default: 0, note: 'Đã xác thực email - Gốc: IsXacThucEmail']
   IsActive bit [not null, default: 1, note: 'Trạng thái hoạt động - Gốc: ACTIVE']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
 }
@@ -32,6 +34,8 @@ Table tblCustomer_v2 [headercolor: #1f77b4] {
   DateOfBirth datetime [null, note: 'Ngày sinh - Gốc: NGAYSINH']
   IsActive bit [not null, default: 1, note: 'Trạng thái hoạt động - Gốc: ACTIVE']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo - Gốc: NGUOITAO']
+  UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NGUOISUA']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
 }
@@ -49,6 +53,8 @@ Table tblBusiness_v2 [headercolor: #1f77b4] {
   Website varchar(255) [null, note: 'Gốc: WebSite']
   IsActive bit [not null, default: 1, note: 'Gốc: Active']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo - Gốc: NGUOITAO']
+  UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NGUOISUA']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
 }
@@ -62,6 +68,8 @@ Table tblBusinessRole_v2 [headercolor: #1f77b4] {
   IsDefault bit [not null, default: 0, note: 'Gốc: IsMacDinh']
   IsActive bit [not null, default: 1, note: 'Gốc: IsActive']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayCapNhat']
 }
@@ -71,6 +79,8 @@ Table tblBusinessRolePermission_v2 [headercolor: #1f77b4] {
   Id UUID [pk]
   RoleId UUID [not null, note: 'FK -> tblBusinessRole_v2.Id']
   PermissionKey varchar(100) [not null, note: 'VD: company.profile.update, rfq.quotes.negotiate, order.approval.action']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bổ sung Ngày tạo']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bổ sung Ngày sửa']
 
@@ -79,18 +89,16 @@ Table tblBusinessRolePermission_v2 [headercolor: #1f77b4] {
   }
 }
 
-// Bảng gốc: tblDoiTuongNguoiLienHe (+ thông tin cá nhân của thành viên trong doanh nghiệp)
+// Bảng gốc: tblDoiTuongNguoiLienHe (thông tin cá nhân lưu bên tblCustomer_v2 tránh trùng lặp)
 Table tblBusinessMember_v2 [headercolor: #1f77b4] {
   Id UUID [pk, note: 'Gốc: tblDoiTuongNguoiLienHe.IDDoiTuongNLH']
   BusinessId UUID [not null, note: 'FK -> tblBusiness_v2.Id - Gốc: IDDoiTuong']
   AccountId UUID [not null, note: 'FK -> tblAccount_v2.Id - Gốc: IDNguoiLH']
-  Name nvarchar(250) [null, note: 'Họ tên có dấu - Gốc: TenNguoiLienHeUnicode']
-  PhoneNumber nvarchar(1000) [null, note: 'Số điện thoại - Gốc: DiDongFull / DIDONG']
-  Gender bit [null, note: '1: Nam, 0: Nữ - Gốc: GIOITINH']
-  DateOfBirth datetime [null, note: 'Ngày sinh - Gốc: NGAYSINH']
   IsVerified bit [not null, default: 0, note: '0: Chờ duyệt, 1: Đã duyệt - Gốc: IsXacThuc']
   IsActive bit [not null, default: 1, note: 'Trạng thái hoạt động - Gốc: TrangThai']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
@@ -105,6 +113,8 @@ Table tblBusinessMemberRole_v2 [headercolor: #1f77b4] {
   MemberId UUID [not null, note: 'FK -> tblBusinessMember_v2.Id']
   RoleId UUID [not null, note: 'FK -> tblBusinessRole_v2.Id']
   Metadata nvarchar(max) [null, note: 'JSON String (lưu PurchaseLimit - HanMucMua, ...)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bổ sung Ngày tạo']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bổ sung Ngày sửa']
 
@@ -113,7 +123,7 @@ Table tblBusinessMemberRole_v2 [headercolor: #1f77b4] {
   }
 }
 
-// Bảng gốc: tblDiaChiGiaoNhan (gốc thiếu NgayTao/NgaySua -> thêm CreatedAt/UpdatedAt)
+// Bảng gốc: tblDiaChiGiaoNhan (không lưu Notes cố định ở sổ địa chỉ, Notes thuộc về Order)
 Table tblDeliveryAddress_v2 [headercolor: #1f77b4] {
   Id UUID [pk, note: 'Gốc: tblDiaChiGiaoNhan.IDDiaChiGiaoNhan']
   ObjectType varchar(20) [not null, note: 'Loại đối tượng sở hữu: Business | Individual']
@@ -123,9 +133,10 @@ Table tblDeliveryAddress_v2 [headercolor: #1f77b4] {
   RecipientPhone varchar(50) [not null, note: 'SĐT người nhận - Gốc: DienThoaiNguoiNhan']
   Address nvarchar(255) [not null, note: 'Địa chỉ chi tiết (các trường Tỉnh/Quận/Xã map khi đồng bộ về tblDiaChiGiaoNhan) - Gốc: DiaChiUnicode']
   IsDefault bit [not null, default: 0, note: 'Gốc: IsMacDinh']
-  Notes nvarchar(255) [null, note: 'Gốc: GhiChuUnicode']
   IsActive bit [not null, default: 1, note: 'Gốc: IsActive']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayCapNhat']
 
@@ -151,9 +162,10 @@ Table tblCart_v2 [headercolor: #2ca02c] {
   SubTotal decimal(18,2) [not null, default: 0, note: 'Tiền sản phẩm - Gốc: tblBaoGia.TienSanPham']
   TotalDiscount decimal(18,2) [not null, default: 0, note: 'Tiền giảm giá - Gốc: tblBaoGia.TienGiamSanPham / TongTienGiam']
   TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng tiền - Gốc: tblBaoGia.TongTien']
-  OrderId UUID [null, note: 'Đơn hàng sinh ra từ giỏ/báo giá - Gốc: tblBaoGia.IDDonHang']
   Notes nvarchar(255) [null, note: 'Ghi chú - Gốc: tblBaoGia.GhiChuUnicode']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo - Gốc: NguoiTao']
+  UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NguoiHieuChinh']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: tblBaoGia.NgayLap / NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: tblBaoGia.NgayHieuChinh']
 
@@ -172,6 +184,8 @@ Table tblCartItem_v2 [headercolor: #2ca02c] {
   UnitPriceWithVat decimal(18,2) [not null, default: 0, note: 'Đơn giá có VAT - Gốc: DonGiaVAT']
   VatRate decimal(18,2) [not null, default: 0, note: 'Tỷ lệ VAT - Gốc: TiLeVAT']
   Notes nvarchar(255) [null, note: 'Ghi chú món - Gốc: GhiChuUnicode']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: Ngay (Bổ sung NgayTao)']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
@@ -180,18 +194,17 @@ Table tblCartItem_v2 [headercolor: #2ca02c] {
   }
 }
 
-// Bảng gốc: tblBaoGiaGiaoNhan (cart-package.entity.ts)
+// Bảng gốc: tblBaoGiaGiaoNhan (thông tin người nhận & địa chỉ lấy qua DeliveryAddressId tránh trùng lặp)
 Table tblCartPackage_v2 [headercolor: #2ca02c] {
   Id UUID [pk, note: 'Gốc: tblBaoGiaGiaoNhan.IDBaoGiaGiaoNhan']
   CartId UUID [not null, note: 'FK -> tblCart_v2.Id - Gốc: IDBaoGia']
-  DeliveryAddressId UUID [null, note: 'FK -> tblDeliveryAddress_v2.Id - Gốc: IDDiaChiGiaoNhan']
+  DeliveryAddressId UUID [not null, note: 'FK -> tblDeliveryAddress_v2.Id - Gốc: IDDiaChiGiaoNhan']
   BatchName nvarchar(50) [null, note: 'Tên đợt giao - Gốc: DotGiaoHangUnicode']
   DeliveryDate datetime [null, note: 'Ngày hẹn giao - Gốc: NgayGiao']
-  RecipientName nvarchar(255) [null, note: 'Tên người nhận - Gốc: HoTenUnicode']
-  RecipientPhone nvarchar(255) [null, note: 'SĐT người nhận - Gốc: DienThoaiFull']
-  RecipientEmail nvarchar(255) [null, note: 'Email người nhận - Gốc: EmailFull']
-  Address nvarchar(255) [null, note: 'Địa chỉ giao (các trường Tỉnh/Quận/Xã map khi đồng bộ về tblBaoGiaGiaoNhan) - Gốc: DiaChiUnicode']
   ShippingConditionId int [null, note: 'Điều kiện giao hàng - Gốc: IDDKGiaoHang']
+  Notes nvarchar(255) [null, note: 'Ghi chú giao nhận - Gốc: GhiChuUnicode']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 }
@@ -203,6 +216,8 @@ Table tblCartPackageItem_v2 [headercolor: #2ca02c] {
   ProductId bigint [not null, note: 'Mã sản phẩm - Gốc: IDSanPham']
   Quantity decimal(10,2) [not null, note: 'Số lượng trong đợt giao - Gốc: SoLuong']
   Notes nvarchar(255) [null, note: 'Gốc: GhiChu']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
@@ -210,6 +225,7 @@ Table tblCartPackageItem_v2 [headercolor: #2ca02c] {
     (CartPackageId, ProductId) [unique]
   }
 }
+
 // ============================================================================
 // 3. BÁO GIÁ ĐƠN HÀNG (ORDER QUOTE - LÀM GỌN CÒN 2 BẢNG)
 // ============================================================================
@@ -227,8 +243,9 @@ Table tblOrderQuote_v2 [headercolor: #ff7f0e] {
   TotalDiscount decimal(18,2) [not null, default: 0, note: 'Gốc: TienGiamSanPham']
   TotalAmount decimal(18,2) [not null, default: 0, note: 'Gốc: TongTien']
   Notes nvarchar(255) [null, note: 'Gốc: GhiChuUnicode']
-  OrderId UUID [null, note: 'Đơn hàng sinh ra khi chốt báo giá - Gốc: IDDonHang']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo - Gốc: NguoiTao']
+  UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NguoiHieuChinh']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayLap']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayHieuChinh']
 
@@ -247,6 +264,8 @@ Table tblOrderQuoteItem_v2 [headercolor: #ff7f0e] {
   UnitPriceWithVat decimal(18,2) [not null, default: 0, note: 'Đơn giá có VAT - Gốc: DonGiaVAT']
   VatRate decimal(18,2) [not null, default: 0, note: 'Tỷ lệ VAT - Gốc: TiLeVAT']
   Notes nvarchar(255) [null, note: 'Gốc: GhiChuUnicode']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
@@ -267,6 +286,8 @@ Table tblPaymentMethod_v2 [headercolor: #d62728] {
   CodFee decimal(18,2) [not null, default: 0, note: 'Gốc: PhiCOD']
   IsActive bit [not null, default: 1, note: 'Gốc: Active']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 }
@@ -289,6 +310,8 @@ Table tblOrder_v2 [headercolor: #d62728] {
   CompletedAt datetime [null, note: 'Gốc: NgayHoanTat']
   CancelledAt datetime [null, note: 'Gốc: NgayHuy']
   IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
+  CreatedBy UUID [null, note: 'Người tạo - Gốc: NguoiTao']
+  UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NguoiHieuChinh']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayHieuChinh']
 
@@ -306,22 +329,27 @@ Table tblOrderItem_v2 [headercolor: #d62728] {
   UnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá chốt - Gốc: DonGia']
   TotalPrice decimal(18,2) [not null, default: 0, note: 'Thành tiền - Gốc: ThanhTien']
   Notes nvarchar(255) [null, note: 'Gốc: GhiChuUnicode']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
+
+  Indexes {
+    (OrderId, ProductId) [unique]
+  }
 }
 
-// Bảng gốc: tblDonHangGiaoNhan (gốc thiếu NgayTao/NgaySua -> thêm)
+// Bảng gốc: tblDonHangGiaoNhan (thông tin người nhận & địa chỉ lấy qua DeliveryAddressId tránh trùng lặp)
 Table tblOrderDelivery_v2 [headercolor: #d62728] {
   Id UUID [pk, note: 'Gốc: tblDonHangGiaoNhan.IDDonHangGiaoNhan']
   OrderId UUID [not null, note: 'Gốc: IDDonHang']
-  DeliveryAddressId UUID [null, note: 'Gốc: IDDiaChiGiaoNhan']
+  DeliveryAddressId UUID [not null, note: 'FK -> tblDeliveryAddress_v2.Id - Gốc: IDDiaChiGiaoNhan']
   BatchName nvarchar(50) [null, note: 'Tên đợt giao - Gốc: DotGiaoHangUnicode']
   DeliveryDate datetime [null, note: 'Ngày giao hàng - Gốc: NgayGiao']
-  RecipientName nvarchar(255) [null, note: 'Tên người nhận - Gốc: HoTenUnicode']
-  RecipientPhone nvarchar(255) [null, note: 'SĐT nhận hàng - Gốc: DienThoaiFull']
-  RecipientEmail nvarchar(255) [null, note: 'Email nhận hàng - Gốc: EmailFull']
-  Address nvarchar(255) [null, note: 'Địa chỉ nhận hàng (các trường Tỉnh/Quận/Xã map khi đồng bộ về tblDonHangGiaoNhan) - Gốc: DiaChiUnicode']
   ShippingConditionId int [null, note: 'Điều kiện giao hàng - Gốc: IDDKGiaoHang']
+  Notes nvarchar(255) [null, note: 'Ghi chú giao hàng - Gốc: GhiChuUnicode']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 }
@@ -332,6 +360,8 @@ Table tblOrderDeliveryItem_v2 [headercolor: #d62728] {
   OrderDeliveryId UUID [not null, note: 'Gốc: IDDonHangGiaoNhan']
   ProductId bigint [not null, note: 'Gốc: IDSanPham']
   Quantity decimal(10,2) [not null, note: 'Số lượng giao trong đợt - Gốc: SoLuong']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
@@ -349,14 +379,36 @@ Table tblOrderInvoice_v2 [headercolor: #d62728] {
   TaxCode nvarchar(50) [null, note: 'Mã số thuế - Gốc: MaSoThue']
   Address nvarchar(255) [null, note: 'Địa chỉ xuất HĐ - Gốc: DiaChi']
   Email nvarchar(255) [null, note: 'Email nhận HĐ - Gốc: Email']
-  Phone nvarchar(255) [null, note: 'SĐT liên hệ - Gốc: DienThoai']
-  Fax nvarchar(255) [null, note: 'Gốc: Fax']
+  PhoneNumber nvarchar(255) [null, note: 'SĐT liên hệ - Gốc: DienThoai']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
   CreatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgayTao']
   UpdatedAt datetime [not null, default: `getdate()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 }
 
 // ============================================================================
-// QUAN HỆ KHÓA NGOẠI (FOREIGN KEY RELATIONSHIPS - 31 REFS)
+// 5. LỊCH SỬ THAY ĐỔI (AUDIT LOGS - 1 BẢNG)
+// ============================================================================
+
+// Bảng mới: Lưu lịch sử mọi thay đổi (ai, sửa cái gì, thời gian nào)
+Table tblAuditLogs_v2 [headercolor: #7f7f7f] {
+  Id UUID [pk]
+  TableName varchar(100) [not null, note: 'Tên bảng bị tác động (VD: tblOrder_v2, tblBusiness_v2...)']
+  RecordId UUID [not null, note: 'ID bản ghi bị tác động']
+  Action varchar(50) [not null, note: 'Hành động: CREATE | UPDATE | DELETE']
+  OldValues nvarchar(max) [null, note: 'JSON dữ liệu trước khi sửa']
+  NewValues nvarchar(max) [null, note: 'JSON dữ liệu sau khi sửa']
+  CreatedBy UUID [null, note: 'Ai thực hiện thay đổi (FK -> tblAccount_v2.Id)']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời gian thực hiện']
+
+  Indexes {
+    (TableName, RecordId)
+    (CreatedBy, CreatedAt)
+  }
+}
+
+// ============================================================================
+// QUAN HỆ KHÓA NGOẠI (FOREIGN KEY RELATIONSHIPS - 32 REFS)
 // ============================================================================
 
 // --- 1. Định danh & Tổ chức ---
@@ -397,3 +449,7 @@ Ref FK_OrderDelivery_Order: tblOrderDelivery_v2.OrderId > tblOrder_v2.Id [delete
 Ref FK_OrderDelivery_Address: tblOrderDelivery_v2.DeliveryAddressId > tblDeliveryAddress_v2.Id
 Ref FK_OrderDeliveryItem_Delivery: tblOrderDeliveryItem_v2.OrderDeliveryId > tblOrderDelivery_v2.Id [delete: cascade]
 Ref FK_OrderInvoice_Order: tblOrderInvoice_v2.OrderId - tblOrder_v2.Id [delete: cascade]
+
+// --- 5. Audit Logs ---
+Ref FK_AuditLogs_Actor: tblAuditLogs_v2.CreatedBy > tblAccount_v2.Id
+
