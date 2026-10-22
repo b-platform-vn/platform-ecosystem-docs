@@ -197,7 +197,7 @@ Table tblCartBatch_v2 [headercolor: #ff7f0e] {
   }
 }
 
-// 2.3 Chi tiết sản phẩm theo đợt (Đã bỏ UnitPriceWithVat)
+// 2.3 Chi tiết sản phẩm theo đợt 
 Table tblCartItem_v2 [headercolor: #2ca02c] {
   Id UUID [pk]
   CartBatchId UUID [not null, note: 'FK -> tblCartBatch_v2.Id']
@@ -217,7 +217,7 @@ Table tblCartItem_v2 [headercolor: #2ca02c] {
   }
 }
 
-// 2.4 Báo giá đàm phán B2B (ĐÃ BỎ 5 TRƯỜNG DƯ: ObjectType, ObjectId, SubTotal, TotalDiscount, TotalAmount)
+// 2.4 Báo giá đàm phán B2B 
 Table tblQuote_v2 [headercolor: #17becf] {
   Id UUID [pk]
   QuoteCode nvarchar(30) [unique, not null, note: 'VD: RFQ-202610-001']
@@ -238,7 +238,7 @@ Table tblQuote_v2 [headercolor: #17becf] {
   }
 }
 
-// 2.5 Đơn hàng chính thức (Giữ nguyên các trường snapshot pháp lý đóng băng)
+// 2.5 Đơn hàng chính thức 
 Table tblOrder_v2 [headercolor: #d62728] {
   Id UUID [pk]
   BrandCode varchar(50) [not null, default: 'MDF']
@@ -279,7 +279,7 @@ Table tblOrder_v2 [headercolor: #d62728] {
   }
 }
 
-// 2.6 Phương thức thanh toán (Gọn gàng)
+// 2.6 Phương thức thanh toán
 Table tblPaymentMethod_v2 [headercolor: #9467bd] {
   Id UUID [pk]
   MethodCode varchar(50) [unique, not null]
@@ -301,7 +301,7 @@ Table tblPaymentMethod_v2 [headercolor: #9467bd] {
   }
 }
 
-// 2.7 Thanh toán (Gọn gàng)
+// 2.7 Thanh toán
 Table tblPayment_v2 [headercolor: #9467bd] {
   Id UUID [pk]
   OrderId UUID [not null, note: 'FK -> tblOrder_v2.Id']
