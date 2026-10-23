@@ -12,31 +12,31 @@
     Id UUID [pk, note: 'Gốc: tblNguoiLienHe.IDNGUOILIENHE']
     Username nvarchar(50) [unique, null, note: 'Gốc: TenDangNhap']
     Email varchar(250) [unique, null, note: 'Gốc: EMAIL']
-    Password nvarchar(255) [not null, note: 'Gốc: MatKhau']
+    PasswordHash nvarchar(255) [not null, note: 'Chuỗi băm mật khẩu - Không lưu plaintext - Gốc: MatKhau']
     IsEmailVerified bit [not null, default: 0, note: 'Đã xác thực email - Gốc: IsXacThucEmail']
     IsActive bit [not null, default: 1, note: 'Trạng thái hoạt động - Gốc: ACTIVE']
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
-    UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYTAO']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYSUA']
   }
 
   // Bảng mới: Thông tin liên hệ khách hàng cá nhân (B2C), đồng bộ về tblNguoiLienHe
   Table tblCustomer_v2 [headercolor: #1f77b4] {
     Id UUID [pk, note: 'Đồng bộ về tblNguoiLienHe.IDNGUOILIENHE']
-    AccountId UUID [null, note: 'FK -> tblAccount_v2.Id']
+    AccountId UUID [unique, null, note: 'Quan hệ 1-1 với tblAccount_v2.Id']
     Name nvarchar(250) [null, note: 'Họ tên có dấu - Gốc: TenNguoiLienHeUnicode']
     PhoneNumber nvarchar(1000) [null, note: 'Số điện thoại - Gốc: DiDongFull / DIDONG']
     Email varchar(250) [null, note: 'Email liên hệ - Gốc: EMAIL']
     Gender bit [null, note: '1: Nam, 0: Nữ - Gốc: GIOITINH']
-    DateOfBirth datetime [null, note: 'Ngày sinh - Gốc: NGAYSINH']
+    DateOfBirth date [null, note: 'Ngày sinh (chuẩn date) - Gốc: NGAYSINH']
     IsActive bit [not null, default: 1, note: 'Trạng thái hoạt động - Gốc: ACTIVE']
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo - Gốc: NGUOITAO']
     UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NGUOISUA']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
-    UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYTAO']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYSUA']
   }
 
   // Bảng gốc: tblDoiTuong
@@ -46,7 +46,7 @@
     Name nvarchar(255) [not null, note: 'Tên công ty - Gốc: TenDoiTuong / TenDoiTuongUnicode']
     TaxCode nvarchar(50) [unique, null, note: 'Mã số thuế - Gốc: MaSoThue']
     EntityType tinyint [not null, default: 0, note: 'Loại hình (0: DN, 1: Hộ KD) - Gốc: EntityType']
-    Address nvarchar(255) [null, note: 'Địa chỉ có dấu - Gốc: DiaChiUnicode']
+    Address nvarchar(255) [null, note: 'Địa chỉ có dấu (các trường Tỉnh/Quận/Xã map khi đồng bộ xuống tblDoiTuong) - Gốc: DiaChiUnicode']
     Email nvarchar(4000) [null, note: 'Gốc: EmailFull']
     PhoneNumber varchar(255) [null, note: 'Gốc: DienThoaiFull']
     Website varchar(255) [null, note: 'Gốc: WebSite']
@@ -54,8 +54,8 @@
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo - Gốc: NGUOITAO']
     UpdatedBy UUID [null, note: 'Người cập nhật - Gốc: NGUOISUA']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYTAO']
-    UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NGAYSUA']
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYTAO']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NGAYSUA']
   }
 
   // Bảng gốc: tblVaiTro (role.entity.ts)
@@ -64,13 +64,17 @@
     BusinessId UUID [null, note: 'NULL = Role mặc định hệ thống - Gốc: IDDoiTuong']
     RoleName nvarchar(255) [not null, note: 'Tên vai trò (User tạo Business sẽ có Role là Creator) - Gốc: TenVaiTroUnicode']
     Description nvarchar(500) [null, note: 'Mô tả vai trò - Gốc: MoTaUnicode']
-    IsDefault bit [not null, default: 0, note: 'Gốc: IsMacDinh']
+    IsDefault bit [not null, default: 0, note: 'Tối đa 1 role mặc định trên mỗi Business - Gốc: IsMacDinh']
     IsActive bit [not null, default: 1, note: 'Gốc: IsActive']
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayTao']
-    UpdatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayCapNhat']
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NgayTao']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NgayCapNhat']
+
+    Indexes {
+      (BusinessId, RoleName) [unique]
+    }
   }
 
   // Tách từ cột JSON DanhSachQuyen của tblVaiTro
@@ -80,8 +84,8 @@
     PermissionKey varchar(100) [not null, note: 'VD: company.profile.update, rfq.quotes.negotiate, order.approval.action']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`]
-    UpdatedAt datetime [not null, default: `getdate()`]
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung Ngày tạo']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung Ngày sửa']
 
     Indexes {
       (RoleId, PermissionKey) [unique]
@@ -98,31 +102,33 @@
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Gốc: NgayTao']
-    UpdatedAt datetime [not null, default: `getdate()`]
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Gốc: NgayTao']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bảng gốc thiếu -> Bổ sung NgaySua']
 
     Indexes {
       (BusinessId, AccountId) [unique]
     }
   }
 
-  // Bảng mới: Kết nối n-n giữa BusinessMember và BusinessRole (1 Account có thể có nhiều Role trong cùng 1 Business)
+  // Bảng mới: Kết nối n-n giữa BusinessMember và BusinessRole kèm Hạn mức phê duyệt có cấu trúc
   Table tblBusinessMemberRole_v2 [headercolor: #1f77b4] {
     Id UUID [pk]
     MemberId UUID [not null, note: 'FK -> tblBusinessMember_v2.Id']
-    RoleId UUID [not null, note: 'FK -> tblBusinessRole_v2.Id']
-    Metadata nvarchar(max) [null, note: 'JSON String (lưu PurchaseLimit - HanMucMua, ...)']
+    RoleId UUID [not null, note: 'FK -> tblBusinessRole_v2.Id (Phải cùng BusinessId với Member)']
+    PurchaseLimit decimal(18,2) [null, note: 'Hạn mức mua/duyệt đơn (NULL = Không giới hạn) - Gốc: HanMucMua']
+    CurrencyCode varchar(10) [not null, default: 'VND', note: 'Đơn vị tiền tệ']
+    Metadata nvarchar(max) [null, note: 'JSON String lưu cấu hình mở rộng khác']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`]
-    UpdatedAt datetime [not null, default: `getdate()`]
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung Ngày tạo']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung Ngày sửa']
 
     Indexes {
       (MemberId, RoleId) [unique]
     }
   }
 
-  // Bảng gốc: tblDiaChiGiaoNhan
+  // Bảng gốc: tblDiaChiGiaoNhan (Sổ địa chỉ danh bạ - Đơn hàng sẽ copy snapshot địa chỉ này)
   Table tblDeliveryAddress_v2 [headercolor: #1f77b4] {
     Id UUID [pk, note: 'Gốc: tblDiaChiGiaoNhan.IDDiaChiGiaoNhan']
     ObjectType varchar(20) [not null, default: 'Business', note: 'Loại đối tượng sở hữu: Business | Individual']
@@ -136,8 +142,8 @@
     IsDeleted bit [not null, default: 0, note: 'Xóa mềm (soft-delete)']
     CreatedBy UUID [null, note: 'Người tạo']
     UpdatedBy UUID [null, note: 'Người cập nhật']
-    CreatedAt datetime [not null, default: `getdate()`]
-    UpdatedAt datetime [not null, default: `getdate()`]
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung NgayTao']
+    UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Bổ sung NgayCapNhat']
 
     Indexes {
       (ObjectType, ObjectId)
@@ -336,7 +342,7 @@ Table tblPayment_v2 [headercolor: #9467bd] {
     OldValues nvarchar(max) [null, note: 'JSON dữ liệu trước khi sửa']
     NewValues nvarchar(max) [null, note: 'JSON dữ liệu sau khi sửa']
     CreatedBy UUID [null, note: 'Ai thực hiện thay đổi (FK -> tblAccount_v2.Id)']
-    CreatedAt datetime [not null, default: `getdate()`, note: 'Thời gian thực hiện']
+    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời gian thực hiện']
 
     Indexes {
       (TableName, RecordId)
