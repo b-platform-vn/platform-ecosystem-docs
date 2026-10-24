@@ -1,7 +1,7 @@
-  Project EcomUniversalPlatform_v2 {
-    database_type: 'MSSQL'
-    Note: 'Mô hình chuẩn hóa _v2 gồm 16 bảng: 8 bảng Auth & Org, 7 bảng Giỏ hàng - Báo giá - Đơn hàng & Thanh toán, 1 bảng AuditLogs.'
-  }
+Project EcomUniversalPlatform_v2 {
+  database_type: 'MSSQL'
+  Note: 'Mô hình chuẩn hóa _v2 FINAL: 8 bảng Auth & Org, 11 bảng Cart - Quotes RFQ Đa Vòng - Order & Shipment (Snapshot bất biến), 2 bảng Payment, 1 bảng AuditLogs.'
+}
 
   // ============================================================================
   // 1. ĐỊNH DANH & TỔ CHỨC (AUTH & ORGANIZATION - 8 BẢNG)
@@ -150,24 +150,23 @@
     }
   }
 
-  // ============================================================================
-// 2. GIỎ HÀNG, BÁO GIÁ, ĐƠN HÀNG & THANH TOÁN (ĐÃ DỌN SẠCH TRƯỜNG DƯ)
+// ============================================================================
+// 2. GIỎ HÀNG (SHOPPING CART - TÁCH RỜI KHỎI GIAO VẬN THỰC TẾ)
 // ============================================================================
 
-// 2.1 Cụm giỏ hàng theo phiên
 Table tblCart_v2 [headercolor: #2ca02c] {
-  Id UUID [pk]
-  BrandCode varchar(50) [not null, default: 'MDF', note: 'MDF | ODL']
-  ObjectType varchar(20) [not null, default: 'Individual', note: 'Business | Individual']
-  ObjectId UUID [null, note: 'CustomerId nếu Individual, BusinessId nếu Business']
-  Status varchar(20) [not null, default: 'OPEN', note: 'OPEN | QUOTING | CLOSED']
-  SubTotal decimal(18,2) [not null, default: 0, note: 'Tổng tiền gốc']
-  TotalDiscount decimal(18,2) [not null, default: 0, note: 'Tổng chiết khấu']
-  TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng tiền thanh toán']
-  CreatedBy UUID [null]
-  UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`]
+  Id UUID [pk, note: 'Khóa chính giỏ hàng']
+  BrandCode varchar(50) [not null, default: 'MDF', note: 'Thương hiệu/Kênh bán (MDF, ODL) - Phân tách giỏ hàng theo từng sàn/brand']
+  ObjectType varchar(20) [not null, default: 'Individual', note: 'Chủ thể mua sắm: Individual (khách lẻ) | Business (doanh nghiệp)']
+  ObjectId UUID [null, note: 'ID đối tượng mua: Trỏ đến CustomerId nếu khách lẻ, hoặc BusinessId nếu công ty']
+  Status varchar(20) [not null, default: 'OPEN', note: 'Trạng thái phiên giỏ hàng: OPEN (đang chọn hàng), QUOTING (đang đem đi hỏi báo giá RFQ), CLOSED (đã đóng/chuyển đơn)']
+  SubTotal decimal(18,2) [not null, default: 0, note: 'Tổng tiền gốc các mặt hàng trong giỏ (chưa trừ chiết khấu, chưa thuế)']
+  TotalDiscount decimal(18,2) [not null, default: 0, note: 'Tổng tiền chiết khấu tạm tính áp dụng trên giỏ hàng']
+  TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng số tiền ước tính cần thanh toán (SubTotal - TotalDiscount + Thuế tạm tính)']
+  CreatedBy UUID [null, note: 'Tài khoản người tạo giỏ']
+  UpdatedBy UUID [null, note: 'Tài khoản cập nhật giỏ gần nhất']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo giỏ hàng']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm sửa giỏ hàng gần nhất']
 
   Indexes {
     (BrandCode, ObjectType, ObjectId)
@@ -175,126 +174,288 @@ Table tblCart_v2 [headercolor: #2ca02c] {
   }
 }
 
-// 2.2 Đợt giao hàng & Lệnh xuất kho
-Table tblCartBatch_v2 [headercolor: #ff7f0e] {
-  Id UUID [pk]
-  CartId UUID [not null, note: 'FK -> tblCart_v2.Id']
-  BatchCode varchar(30) [null, note: 'Mã đợt: DO-202610-001']
-  BatchName nvarchar(100) [not null]
-  DeliveryAddressId UUID [null, note: 'FK -> tblDeliveryAddress_v2.Id']
-  ReceiverName nvarchar(255) [null, note: 'Tên người nhận (override nếu khác sổ địa chỉ)']
-  ReceiverPhone varchar(50) [null, note: 'SĐT người nhận (override nếu khác sổ địa chỉ)']
-  ExpectedDeliveryDate date [null]
-  ShippedAt datetime [null]
-  DeliveredAt datetime [null]
-  CarrierCode varchar(50) [null]
-  TrackingNumber varchar(100) [null]
-  ShippingFee decimal(18,2) [not null, default: 0]
-  Status varchar(30) [not null, default: 'PLANNED', note: 'PLANNED -> PREPARING -> READY_TO_SHIP -> SHIPPING -> DELIVERED | DELIVERY_FAILED | ON_HOLD | CANCELLED']
-  Notes nvarchar(500) [null]
-  CreatedBy UUID [null]
-  UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`] 
+Table tblCartDeliveryGroup_v2 [headercolor: #2ca02c] {
+  Id UUID [pk, note: 'Khóa chính nhóm giao hàng dự kiến trong giỏ']
+  CartId UUID [not null, note: 'Thuộc giỏ hàng nào - FK -> tblCart_v2.Id']
+  GroupCode varchar(30) [null, note: 'Mã nhóm tự sinh trong giỏ (VD: GRP-01, GRP-02)']
+  GroupName nvarchar(100) [not null, note: 'Tên đợt theo mong muốn của khách (VD: Giao đợt 1 về Kho Hà Nội, Đợt 2 về Công trình HCM)']
+  DeliveryAddressId UUID [null, note: 'Địa chỉ nhận hàng lấy từ sổ địa chỉ - FK -> tblDeliveryAddress_v2.Id']
+  ReceiverName nvarchar(255) [null, note: 'Tên người nhận (override nếu muốn đổi người nhận khác so với sổ địa chỉ)']
+  ReceiverPhone varchar(50) [null, note: 'SĐT người nhận (override nếu khác với sổ địa chỉ)']
+  ShippingAddress nvarchar(500) [null, note: 'Địa chỉ chi tiết (override nếu khách muốn giao ở địa chỉ vãng lai ngoài sổ địa chỉ)']
+  ExpectedDeliveryDate date [null, note: 'Ngày khách mong muốn nhận được hàng']
+  EstimatedShippingFee decimal(18,2) [not null, default: 0, note: 'Cước vận chuyển ước tính tạm thời cho đợt giao này']
+  Notes nvarchar(500) [null, note: 'Ghi chú/yêu cầu riêng của khách (VD: giao giờ hành chính, gọi trước 30 phút)']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người sửa']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo nhóm đợt giao']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật']
 
   Indexes {
     CartId
+  }
+}
+
+Table tblCartItem_v2 [headercolor: #2ca02c] {
+  Id UUID [pk, note: 'Khóa chính dòng sản phẩm trong giỏ']
+  CartDeliveryGroupId UUID [not null, note: 'Thuộc đợt giao dự kiến nào - FK -> tblCartDeliveryGroup_v2.Id']
+  ProductId bigint [not null, note: 'ID sản phẩm lấy từ danh mục sản phẩm (Catalog)']
+  Quantity decimal(10,2) [not null, default: 1, note: 'Số lượng khách dự định đặt mua']
+  UnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá niêm yết tại thời điểm đưa vào giỏ (chưa VAT)']
+  DiscountAmount decimal(18,2) [not null, default: 0, note: 'Số tiền giảm giá áp cho dòng này']
+  VatRate decimal(5,2) [not null, default: 0, note: 'Thuế suất VAT (%) áp cho sản phẩm này']
+  TotalPrice decimal(18,2) [not null, default: 0, note: 'Thành tiền tạm tính của dòng = (UnitPrice - Discount) * Quantity * (1 + VatRate/100)']
+  CreatedBy UUID [null, note: 'Người thêm món vào giỏ']
+  UpdatedBy UUID [null, note: 'Người cập nhật số lượng']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm bỏ hàng vào giỏ']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm thay đổi số lượng/giá']
+
+  Indexes {
+    (CartDeliveryGroupId, ProductId) [unique]
+  }
+}
+
+// ============================================================================
+// 3. BÁO GIÁ ĐÀM PHÁN B2B (RFQ & QUOTE REVISIONS - ĐA VÒNG, RÕ CHỦ THỂ, IDEMPOTENT)
+// ============================================================================
+
+Table tblQuote_v2 [headercolor: #17becf] {
+  Id UUID [pk, note: 'Khóa chính phiên đàm phán báo giá']
+  BrandCode varchar(50) [not null, default: 'MDF', note: 'Kênh/Sàn giao dịch thương lượng (MDF, ODL)']
+  QuoteCode nvarchar(30) [unique, not null, note: 'Mã số báo giá hiển thị (VD: RFQ-202610-001)']
+  OriginCartId UUID [null, note: 'Giỏ hàng khởi tạo yêu cầu báo giá ban đầu (Nullable - cho phép tạo thẳng không cần qua Cart)']
+  ObjectType varchar(20) [not null, default: 'Business', note: 'Loại khách hàng yêu cầu báo giá: Business (DN) | Individual (Cá nhân)']
+  ObjectId UUID [not null, note: 'ID đối tượng: BusinessId (công ty mua) hoặc CustomerId']
+  RequestAccountId UUID [not null, note: 'Tài khoản nhân viên mua hàng trực tiếp lập RFQ - FK -> tblAccount_v2.Id']
+  SalesAssigneeId UUID [null, note: 'Nhân viên kinh doanh phụ trách phiên đàm phán này - FK -> tblAccount_v2.Id']
+  
+  Status varchar(40) [not null, default: 'DRAFT', note: 'Trạng thái rõ bên hành động: DRAFT (nháp) | WAITING_FOR_SALES (chờ sale ra giá) | WAITING_FOR_BUYER (chờ khách duyệt) | BUYER_CHANGE_REQUESTED (khách trả giá/yêu cầu sửa) | ACCEPTED (đã đồng thuận giá) | CONVERTED_TO_ORDER (đã lên đơn hàng) | EXPIRED (hết hạn) | CANCELLED (hủy)']
+  
+  CurrentRevisionId UUID [null, note: 'ID của vòng đàm phán mới nhất đang thương thảo']
+  AcceptedRevisionId UUID [null, note: 'ID của vòng đàm phán chính thức được duyệt để đóng băng lên đơn - FK -> tblQuoteRevision_v2.Id']
+  AcceptedBy UUID [null, note: 'Tài khoản người bấm nút duyệt chốt báo giá - FK -> tblAccount_v2.Id']
+  AcceptedAt datetime [null, note: 'Thời điểm duyệt chốt thỏa thuận giá']
+  
+  ConvertedOrderId UUID [unique, null, note: 'ID đơn hàng sinh ra từ báo giá này (Quan hệ 1-1, chống tạo trùng đơn / Idempotency) - FK -> tblOrder_v2.Id']
+  ConvertedAt datetime [null, note: 'Thời điểm tạo thành công đơn hàng từ báo giá']
+  ExpiredAt datetime [null, note: 'Hạn cuối đóng phiên đàm phán nếu 2 bên không chốt được giá']
+  CreatedBy UUID [null, note: 'Người tạo']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm mở phiên báo giá']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật trạng thái']
+
+  Indexes {
+    QuoteCode
+    (ObjectType, ObjectId)
+    SalesAssigneeId
+    Status
+    AcceptedRevisionId
+    ConvertedOrderId [unique]
+  }
+}
+
+Table tblQuoteRevision_v2 [headercolor: #17becf] {
+  Id UUID [pk, note: 'Khóa chính của từng vòng chào giá']
+  QuoteId UUID [not null, note: 'Thuộc phiên đàm phán nào - FK -> tblQuote_v2.Id']
+  RevisionNumber int [not null, default: 1, note: 'Lần thương lượng số: 1, 2, 3...']
+  OfferedBy varchar(20) [not null, note: 'Bên đưa ra đề xuất giá ở vòng này: SALES (bên bán ra giá) | BUYER (bên mua trả giá)']
+  ActorAccountId UUID [not null, note: 'Tài khoản trực tiếp bấm gửi đề xuất giá ở vòng này - FK -> tblAccount_v2.Id']
+  SubTotal decimal(18,2) [not null, default: 0, note: 'Tổng tiền hàng chưa thuế ở vòng này']
+  DiscountAmount decimal(18,2) [not null, default: 0, note: 'Số tiền chiết khấu thương mại bổ sung cho cả báo giá ở vòng này']
+  TaxableAmount decimal(18,2) [not null, default: 0, note: 'Tổng tiền chịu thuế VAT của vòng này = SubTotal - DiscountAmount']
+  VatAmount decimal(18,2) [not null, default: 0, note: 'Tổng tiền thuế VAT ở vòng này']
+  EstimatedShippingFee decimal(18,2) [not null, default: 0, note: 'Cước vận chuyển chốt ở vòng đàm phán này']
+  TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng giá trị cam kết thanh toán của vòng này = TaxableAmount + VatAmount + ShippingFee']
+  Status varchar(30) [not null, default: 'SUBMITTED', note: 'Trạng thái riêng của vòng này: DRAFT (nháp) | SUBMITTED (đã gửi) | REJECTED (bị từ chối vòng này để trả giá tiếp) | ACCEPTED (được duyệt) | SUPERSEDED (bị thay thế bởi vòng mới hơn)']
+  ValidUntil datetime [null, note: 'Thời hạn hiệu lực của riêng mức giá trong vòng này (quá hạn giá không còn giá trị cam kết)']
+  Notes nvarchar(1000) [null, note: 'Ghi chú đề xuất, điều kiện thương mại riêng của vòng này']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo vòng chào giá (Bất biến, không có UpdatedAt)']
+
+  Indexes {
+    (QuoteId, RevisionNumber) [unique]
     Status
   }
 }
 
-// 2.3 Chi tiết sản phẩm theo đợt 
-Table tblCartItem_v2 [headercolor: #2ca02c] {
-  Id UUID [pk]
-  CartBatchId UUID [not null, note: 'FK -> tblCartBatch_v2.Id']
-  ProductId bigint [not null]
-  Quantity decimal(10,2) [not null, default: 1]
-  UnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá chưa VAT']
-  DiscountAmount decimal(18,2) [not null, default: 0, note: 'Giảm giá từng món']
-  VatRate decimal(5,2) [not null, default: 0, note: 'Tỷ lệ VAT (%)']
-  TotalPrice decimal(18,2) [not null, default: 0, note: '(UnitPrice - Discount) * Quantity * (1 + VatRate/100)']
-  CreatedBy UUID [null]
-  UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`]
+Table tblQuoteRevisionItem_v2 [headercolor: #17becf] {
+  Id UUID [pk, note: 'Khóa chính dòng sản phẩm của vòng chào giá']
+  RevisionId UUID [not null, note: 'Thuộc vòng chào giá nào - FK -> tblQuoteRevision_v2.Id']
+  ProductId bigint [not null, note: 'ID sản phẩm catalog']
+  ProductSku varchar(100) [not null, note: 'Mã SKU snapshot tại vòng chào giá']
+  ProductName nvarchar(255) [not null, note: 'Tên sản phẩm snapshot tại vòng này']
+  Uom varchar(30) [null, note: 'Đơn vị tính (Tấm, Thanh, Cái, Mét...)']
+  Quantity decimal(10,2) [not null, default: 1, note: 'Số lượng thương lượng (khách có thể yêu cầu tăng SL để ép giá)']
+  OriginalUnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá niêm yết ban đầu (làm mốc so sánh chiết khấu)']
+  OfferedUnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá đề xuất trong vòng này (chưa VAT)']
+  DiscountPercent decimal(5,2) [not null, default: 0, note: 'Tỷ lệ % chiết khấu riêng cho dòng này']
+  VatRate decimal(5,2) [not null, default: 0, note: 'Thuế suất VAT (%)']
+  TotalPrice decimal(18,2) [not null, default: 0, note: 'Tổng tiền có thuế của mặt hàng trong vòng này']
+  Notes nvarchar(500) [null, note: 'Yêu cầu quy cách gia công/đóng gói riêng cho món này (VD: xẻ đôi, đóng pallet)']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo dòng báo giá']
 
   Indexes {
-    (CartBatchId, ProductId) [unique]
+    (RevisionId, ProductId)
   }
 }
 
-// 2.4 Báo giá đàm phán B2B 
-Table tblQuote_v2 [headercolor: #17becf] {
-  Id UUID [pk]
-  QuoteCode nvarchar(30) [unique, not null, note: 'VD: RFQ-202610-001']
-  CartId UUID [unique, not null, note: '1-1 với Cart đang đàm phán']
-  AssignedTo UUID [null, note: 'Sale phụ trách - FK -> tblAccount_v2.Id']
-  Status varchar(30) [not null, default: 'RFQ_REQUESTED', note: 'RFQ_REQUESTED -> PROCESSING -> QUOTED -> ACCEPTED -> REJECTED -> EXPIRED']
-  Notes nvarchar(1000) [null, note: 'Thỏa thuận đàm phán riêng']
-  ExpiredAt datetime [null, note: 'Hạn chốt báo giá']
-  CreatedBy UUID [null]
-  UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`]
+Table tblQuoteEvent_v2 [headercolor: #17becf] {
+  Id UUID [pk, note: 'Khóa chính sự kiện đàm phán']
+  QuoteId UUID [not null, note: 'Thuộc phiên đàm phán nào - FK -> tblQuote_v2.Id']
+  RevisionId UUID [null, note: 'Sự kiện gắn liền với vòng giá cụ thể nào (nếu có) - FK -> tblQuoteRevision_v2.Id']
+  ActorAccountId UUID [not null, note: 'Tài khoản người thực hiện hành động - FK -> tblAccount_v2.Id']
+  ActorType varchar(20) [not null, note: 'Vai trò người thao tác: BUYER (người mua) | SALES (nhân viên bán) | SYSTEM (hệ thống tự động)']
+  EventType varchar(50) [not null, note: 'Loại sự kiện: ASSIGNED (phân công sale), COUNTER_OFFER (trả giá), CHANGE_REQUEST (yêu cầu sửa SL/quy cách), PRICE_PROPOSED (báo giá mới), ACCEPTED (duyệt giá), REJECTED (từ chối vòng giá), EXPIRED (hết hạn), CANCELLED (hủy phiên), MESSAGE (trao đổi)']
+  Message nvarchar(2000) [null, note: 'Nội dung trao đổi / Lý do từ chối vòng giá / Đề xuất chiết khấu thêm']
+  AttachmentUrl nvarchar(1000) [null, note: 'Đường dẫn file đính kèm (hợp đồng nguyên tắc, bảng bóc tách khối lượng Excel, bản vẽ CAD...)']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm diễn ra hành động']
 
   Indexes {
-    QuoteCode
-    CartId
-    AssignedTo
+    (QuoteId, CreatedAt)
+    EventType
   }
 }
 
-// 2.5 Đơn hàng chính thức 
+// ============================================================================
+// 4. ĐƠN HÀNG, DÒNG ĐƠN HÀNG & GIAO VẬN (CHUẨN 4 BẢNG CHUYÊN NGHIỆP)
+// ============================================================================
+
+// 4.1 Đơn hàng Master
 Table tblOrder_v2 [headercolor: #d62728] {
-  Id UUID [pk]
-  BrandCode varchar(50) [not null, default: 'MDF']
-  OrderCode nvarchar(30) [unique, not null]
-  CartId UUID [unique, not null, note: '1-1 với Cart đã đóng băng']
-  QuoteId UUID [null, note: 'Báo giá nguồn nếu có']
-  ObjectType varchar(20) [not null, default: 'Individual']
-  ObjectId UUID [not null]
-  Status varchar(20) [not null, default: 'CONFIRMED']
-  PaymentStatus varchar(20) [not null, default: 'UNPAID']
-  DeliveryStatus varchar(20) [not null, default: 'PENDING']
+  Id UUID [pk, note: 'Khóa chính đơn hàng']
+  BrandCode varchar(50) [not null, default: 'MDF', note: 'Kênh/Sàn bán lẻ hoặc dự án (MDF, ODL)']
+  OrderCode nvarchar(30) [unique, not null, note: 'Mã đơn hàng chính thức duy nhất (VD: ORD-202610-001)']
+  SourceType varchar(30) [not null, default: 'CART', note: 'Nguồn gốc tạo đơn: CART (từ giỏ hàng web), QUOTE (chốt từ báo giá RFQ), MANUAL_ADMIN (sale/kế toán tạo tay), API (hệ thống ngoài đẩy vào), IMPORT (import Excel), POS (tại quầy)']
+  CartId UUID [null, note: 'ID giỏ hàng gốc nếu đơn từ giỏ (Nullable - Đơn từ Quote/Admin sẽ có giá trị NULL)']
+  QuoteId UUID [null, note: 'ID phiên báo giá gốc nếu đơn chuyển đổi từ RFQ (Nullable)']
+  QuoteRevisionId UUID [unique, null, note: 'ID chính xác của Vòng báo giá được duyệt chốt (UNIQUE - Khóa Idempotency, đảm bảo 1 Revision chỉ sinh tối đa 1 Order)']
+  ObjectType varchar(20) [not null, default: 'Individual', note: 'Loại khách mua: Individual (cá nhân) | Business (doanh nghiệp)']
+  ObjectId UUID [not null, note: 'ID khách: CustomerId hoặc BusinessId']
+  Status varchar(20) [not null, default: 'CONFIRMED', note: 'Trạng thái xử lý đơn hàng: DRAFT | CONFIRMED (đã chốt) | PROCESSING (đang đóng hàng) | COMPLETED (hoàn tất) | CANCELLED (hủy)']
+  PaymentStatus varchar(20) [not null, default: 'UNPAID', note: 'Trạng thái thanh toán: UNPAID (chưa trả) | PARTIALLY_PAID (đặt cọc/trả một phần) | PAID (thanh toán đủ) | REFUNDED (hoàn tiền)']
+  DeliveryStatus varchar(20) [not null, default: 'PENDING', note: 'Trạng thái giao nhận tổng hợp từ các kiện: PENDING (chờ giao) | PARTIALLY_SHIPPED (đã giao 1 phần) | SHIPPED (đã giao hết lên xe) | DELIVERED (giao thành công toàn bộ) | CANCELLED (hủy)']
   
-  // Thông tin xuất hóa đơn VAT
-  IsInvoiceRequested bit [not null, default: 0]
-  InvoiceTaxCode varchar(20) [null]
-  InvoiceCompanyName nvarchar(255) [null]
-  InvoiceAddress nvarchar(500) [null]
-  InvoiceEmail varchar(100) [null]
+  // =========================================================================
+  // SNAPSHOT ĐỊA CHỈ GIAO HÀNG ĐÓNG BĂNG (CHỐNG LỖI KHI SỔ ĐỊA CHỈ BỊ THAY ĐỔI)
+  // =========================================================================
+  DeliveryAddressId UUID [null, note: 'ID địa chỉ nguồn từ sổ địa chỉ (FK tham chiếu nguồn - Nullable)']
+  ShippingRecipientName nvarchar(255) [null, note: 'Snapshot họ tên người nhận hàng tại thời điểm đặt đơn (đóng băng vĩnh viễn)']
+  ShippingRecipientPhone varchar(50) [null, note: 'Snapshot SĐT người nhận hàng (đóng băng vĩnh viễn)']
+  ShippingAddress nvarchar(500) [null, note: 'Snapshot nguyên văn địa chỉ giao hàng tại thời điểm chốt đơn (Sổ địa chỉ sửa đổi sau này không làm thay đổi giá trị này)']
 
-  SubTotal decimal(18,2) [not null, default: 0]
-  TotalDiscount decimal(18,2) [not null, default: 0]
-  ShippingFee decimal(18,2) [not null, default: 0]
-  CodFee decimal(18,2) [not null, default: 0]
-  VatAmount decimal(18,2) [not null, default: 0]
-  TotalAmount decimal(18,2) [not null, default: 0]
-  Notes nvarchar(1000) [null]
-  CancelReason nvarchar(255) [null]
-  ConfirmedAt datetime [null]
-  CompletedAt datetime [null]
-  CreatedBy UUID [null]
-  UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`]
+  // Thông tin xuất hóa đơn VAT điện tử (Snapshot đóng băng)
+  IsInvoiceRequested bit [not null, default: 0, note: 'Có yêu cầu xuất hóa đơn đỏ VAT không (0: Không, 1: Có)']
+  InvoiceTaxCode varchar(20) [null, note: 'Mã số thuế doanh nghiệp xuất hóa đơn snapshot']
+  InvoiceCompanyName nvarchar(255) [null, note: 'Tên công ty nhận hóa đơn snapshot']
+  InvoiceAddress nvarchar(500) [null, note: 'Địa chỉ công ty xuất hóa đơn snapshot']
+  InvoiceEmail varchar(100) [null, note: 'Email nhận file hóa đơn điện tử snapshot']
+
+  // Tài chính tổng hợp cấp Đơn hàng (Snapshot bất biến)
+  SubTotal decimal(18,2) [not null, default: 0, note: 'Tổng tiền hàng gốc chưa thuế (Tổng cộng từ các dòng tblOrderItem_v2)']
+  TotalDiscount decimal(18,2) [not null, default: 0, note: 'Tổng chiết khấu giảm giá cho toàn đơn hàng']
+  ShippingFee decimal(18,2) [not null, default: 0, note: 'Tổng cước vận chuyển chính thức của đơn hàng']
+  CodFee decimal(18,2) [not null, default: 0, note: 'Phí thu tiền hộ COD (nếu có)']
+  VatAmount decimal(18,2) [not null, default: 0, note: 'Tổng tiền thuế VAT của đơn hàng']
+  TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng số tiền người mua phải thanh toán = SubTotal - TotalDiscount + ShippingFee + CodFee + VatAmount']
+  
+  Notes nvarchar(1000) [null, note: 'Ghi chú tổng thể của đơn hàng']
+  CancelReason nvarchar(255) [null, note: 'Lý do hủy đơn hàng (nếu đơn bị hủy)']
+  ConfirmedAt datetime [null, note: 'Thời điểm duyệt đơn hàng']
+  CompletedAt datetime [null, note: 'Thời điểm hoàn tất đơn (đã giao xong + đã thanh toán)']
+  CreatedBy UUID [null, note: 'Tài khoản người tạo đơn']
+  UpdatedBy UUID [null, note: 'Tài khoản sửa đơn']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo đơn']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm sửa đơn']
 
   Indexes {
     (BrandCode, Status, PaymentStatus)
     (ObjectType, ObjectId)
+    CartId
+    QuoteId
+    QuoteRevisionId [unique]
+    SourceType
   }
 }
 
-// 2.6 Phương thức thanh toán
+// 4.2 Chi tiết dòng đơn hàng bất biến (Snapshot độc lập hoàn toàn với Cart và Catalog)
+Table tblOrderItem_v2 [headercolor: #d62728] {
+  Id UUID [pk, note: 'Khóa chính dòng đơn hàng']
+  OrderId UUID [not null, note: 'Thuộc đơn hàng nào - FK -> tblOrder_v2.Id']
+  ProductId bigint [not null, note: 'ID sản phẩm trong danh mục gốc để tra cứu']
+  ProductSku varchar(100) [not null, note: 'Mã SKU snapshot tại thời điểm mua (không bao giờ đổi)']
+  ProductName nvarchar(255) [not null, note: 'Tên sản phẩm snapshot (dù catalog sửa tên thì đơn cũ vẫn giữ nguyên)']
+  VariantName nvarchar(255) [null, note: 'Thuộc tính/Quy cách/Màu sắc snapshot (VD: Khổ 1220x2440, dày 17mm, mã vân sồi 388)']
+  Uom varchar(30) [null, note: 'Đơn vị tính snapshot (Tấm, Thanh, Cái, Mét...)']
+  Quantity decimal(10,2) [not null, default: 1, note: 'Số lượng đặt mua chính thức']
+  FulfilledQuantity decimal(10,2) [not null, default: 0, note: 'Số lượng thực tế đã xuất kho giao thành công (cộng dồn từ các đợt giao thực tế)']
+  UnitPrice decimal(18,2) [not null, default: 0, note: 'Đơn giá bán chưa VAT snapshot']
+  DiscountAmount decimal(18,2) [not null, default: 0, note: 'Số tiền giảm giá phân bổ cho dòng này']
+  TaxableAmount decimal(18,2) [not null, default: 0, note: 'Tiền chịu thuế của dòng = (UnitPrice * Quantity) - DiscountAmount']
+  VatRate decimal(5,2) [not null, default: 0, note: 'Thuế suất VAT (%) snapshot']
+  VatAmount decimal(18,2) [not null, default: 0, note: 'Tiền thuế VAT của dòng snapshot']
+  TotalPrice decimal(18,2) [not null, default: 0, note: 'Tổng tiền có thuế của dòng này = TaxableAmount + VatAmount']
+  ItemNotes nvarchar(500) [null, note: 'Ghi chú kỹ thuật/yêu cầu riêng cho mặt hàng này']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo dòng hàng (Bất biến, không có UpdatedAt)']
+
+  Indexes {
+    (OrderId, ProductId)
+    ProductSku
+  }
+}
+
+// 4.3 Đợt giao hàng & Lệnh xuất kho thực tế (Thuộc sở hữu của Order, hỗ trợ giao nhiều kho/nhiều đợt)
+Table tblOrderShipment_v2 [headercolor: #ff7f0e] {
+  Id UUID [pk, note: 'Khóa chính kiện hàng / Lệnh xuất kho (DO - Delivery Order)']
+  OrderId UUID [not null, note: 'Thuộc đơn hàng nào - FK -> tblOrder_v2.Id']
+  ShipmentCode varchar(50) [unique, not null, note: 'Mã số kiện hàng/phiếu xuất kho thực tế (VD: DO-202610-001)']
+  WarehouseCode varchar(50) [null, note: 'Mã kho thực tế xuất kiện này (Kho Bình Dương, Kho Hà Nội...)']
+  RecipientName nvarchar(255) [not null, note: 'Tên người nhận hàng thực tế tại địa điểm giao của kiện này']
+  RecipientPhone varchar(50) [not null, note: 'SĐT người nhận hàng thực tế của kiện này']
+  ShippingAddress nvarchar(500) [not null, note: 'Địa chỉ giao hàng thực tế của kiện này (snapshot độc lập theo từng chuyến)']
+  CarrierCode varchar(50) [null, note: 'Đơn vị vận chuyển thực tế: GHN, GHTK, ViettelPost, XE_CONG_TY, XE_THUE_NGOAI']
+  TrackingNumber varchar(100) [null, note: 'Mã vận đơn bưu cục để tra cứu hành trình trực tuyến']
+  ShippingFee decimal(18,2) [not null, default: 0, note: 'Cước phí vận chuyển thực tế phát sinh của riêng kiện hàng/chuyến xe này']
+  CodAmount decimal(18,2) [not null, default: 0, note: 'Số tiền thu hộ tiền mặt (COD) của riêng kiện này']
+  Status varchar(30) [not null, default: 'PLANNED', note: 'Trạng thái vòng đời kiện hàng: PLANNED (lên lịch) | PREPARING (đang nhặt hàng) | READY_TO_SHIP (chờ xe) | SHIPPING (đang trên đường) | DELIVERED (giao thành công) | FAILED (thất bại) | CANCELLED (hủy)']
+  ShippedAt datetime [null, note: 'Thời điểm bốc hàng lên xe rời kho']
+  DeliveredAt datetime [null, note: 'Thời điểm khách ký biên bản nhận hàng thành công']
+  Notes nvarchar(500) [null, note: 'Ghi chú điều vận xe tải, bốc xếp...']
+  CreatedBy UUID [null, note: 'Người tạo lệnh xuất kho']
+  UpdatedBy UUID [null, note: 'Người cập nhật']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo lệnh xuất']
+  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật hành trình']
+
+  Indexes {
+    (OrderId, Status)
+    TrackingNumber
+  }
+}
+
+// 4.4 Mặt hàng xuất trong từng đợt xuất kho (Hỗ trợ Giao hàng từng phần / Partial Fulfillment)
+Table tblOrderShipmentItem_v2 [headercolor: #ff7f0e] {
+  Id UUID [pk, note: 'Khóa chính dòng hàng xuất kho']
+  ShipmentId UUID [not null, note: 'Thuộc kiện hàng nào - FK -> tblOrderShipment_v2.Id']
+  OrderItemId UUID [not null, note: 'Tương ứng với dòng sản phẩm nào trong đơn hàng - FK -> tblOrderItem_v2.Id']
+  Quantity decimal(10,2) [not null, default: 1, note: 'Số lượng thực tế xuất trong kiện này (hỗ trợ giao dần từng đợt theo tiến độ)']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm đóng gói sản phẩm vào kiện']
+
+  Indexes {
+    (ShipmentId, OrderItemId) [unique]
+  }
+}
+
+// ============================================================================
+// 5. THANH TOÁN (PAYMENT - 2 BẢNG)
+// ============================================================================
+
 Table tblPaymentMethod_v2 [headercolor: #9467bd] {
-  Id UUID [pk]
-  MethodCode varchar(50) [unique, not null]
-  MethodName nvarchar(100) [not null]
-  MethodType varchar(30) [not null, default: 'OFFLINE']
-  Provider varchar(50) [null]
-  IconUrl nvarchar(500) [null]
-  Description nvarchar(500) [null]
-  ConfigJson nvarchar(max) [null]
+  Id UUID [pk, note: 'Khóa chính phương thức thanh toán']
+  MethodCode varchar(50) [unique, not null, note: 'Mã phương thức (VNPAY, MOMO, COD, BANK_TRANSFER, DEBT_30_DAYS)']
+  MethodName nvarchar(100) [not null, note: 'Tên phương thức hiển thị (Chuyển khoản, Thẻ, Công nợ 30 ngày)']
+  MethodType varchar(30) [not null, default: 'OFFLINE', note: 'ONLINE (Cổng thanh toán) | OFFLINE (Tiền mặt/Chuyển khoản) | CREDIT (Công nợ B2B)']
+  Provider varchar(50) [null, note: 'Nhà cung cấp cổng (VNPAY, PayOS, OnePay)']
+  IconUrl nvarchar(500) [null, note: 'Logo phương thức']
+  Description nvarchar(500) [null, note: 'Mô tả hướng dẫn thanh toán']
+  ConfigJson nvarchar(max) [null, note: 'Cấu hình tích hợp (API Key, Secret Key dạng JSON)']
   IsActive bit [not null, default: 1]
   CreatedBy UUID [null]
   UpdatedBy UUID [null]
@@ -307,18 +468,17 @@ Table tblPaymentMethod_v2 [headercolor: #9467bd] {
   }
 }
 
-// 2.7 Thanh toán
 Table tblPayment_v2 [headercolor: #9467bd] {
-  Id UUID [pk]
-  OrderId UUID [not null, note: 'FK -> tblOrder_v2.Id']
-  PaymentMethodId UUID [not null, note: 'FK -> tblPaymentMethod_v2.Id']
-  PaymentCode varchar(50) [unique, not null]
-  TransactionCode varchar(100) [null]
-  PaymentType varchar(20) [not null, default: 'FULL']
-  Amount decimal(18,2) [not null]
-  Status varchar(20) [not null, default: 'PENDING']
-  DueDate datetime [null]
-  PaidAt datetime [null]
+  Id UUID [pk, note: 'Khóa chính giao dịch thanh toán']
+  OrderId UUID [not null, note: 'Thanh toán cho đơn hàng nào - FK -> tblOrder_v2.Id']
+  PaymentMethodId UUID [not null, note: 'Phương thức thanh toán sử dụng - FK -> tblPaymentMethod_v2.Id']
+  PaymentCode varchar(50) [unique, not null, note: 'Mã phiếu thu/giao dịch nội bộ']
+  TransactionCode varchar(100) [null, note: 'Mã giao dịch đối soát của Ngân hàng / Cổng thanh toán']
+  PaymentType varchar(20) [not null, default: 'FULL', note: 'DEPOSIT (đặt cọc) | REMAINING (thanh toán nốt) | FULL (thanh toán 100%)']
+  Amount decimal(18,2) [not null, note: 'Số tiền thanh toán của giao dịch này']
+  Status varchar(20) [not null, default: 'PENDING', note: 'PENDING (chờ xử lý) | SUCCESS (thành công) | FAILED (thất bại)']
+  DueDate datetime [null, note: 'Hạn chót thanh toán (đối với đơn công nợ B2B)']
+  PaidAt datetime [null, note: 'Thời điểm tiền vào tài khoản thành công']
   CreatedBy UUID [null]
   CreatedAt datetime [not null, default: `getdate()`]
 
@@ -329,65 +489,85 @@ Table tblPayment_v2 [headercolor: #9467bd] {
   }
 }
 
-  // ============================================================================
-  // 3. LỊCH SỬ THAY ĐỔI (AUDIT LOGS - 1 BẢNG)
-  // ============================================================================
+// ============================================================================
+// 6. LỊCH SỬ THAY ĐỔI (AUDIT LOGS - 1 BẢNG)
+// ============================================================================
 
-  // Bảng lưu lịch sử mọi thay đổi
-  Table tblAuditLogs_v2 [headercolor: #7f7f7f] {
-    Id UUID [pk]
-    TableName varchar(100) [not null, note: 'Tên bảng bị tác động (VD: tblOrder_v2, tblQuote_v2...)']
-    RecordId UUID [not null, note: 'ID bản ghi bị tác động']
-    Action varchar(50) [not null, note: 'Hành động: CREATE | UPDATE | DELETE']
-    OldValues nvarchar(max) [null, note: 'JSON dữ liệu trước khi sửa']
-    NewValues nvarchar(max) [null, note: 'JSON dữ liệu sau khi sửa']
-    CreatedBy UUID [null, note: 'Ai thực hiện thay đổi (FK -> tblAccount_v2.Id)']
-    CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời gian thực hiện']
+Table tblAuditLogs_v2 [headercolor: #7f7f7f] {
+  Id UUID [pk, note: 'Khóa chính nhật ký hệ thống']
+  TableName varchar(100) [not null, note: 'Tên bảng bị tác động (tblOrder_v2, tblQuote_v2...)']
+  RecordId UUID [not null, note: 'ID bản ghi bị tác động']
+  Action varchar(50) [not null, note: 'Hành động: INSERT | UPDATE | DELETE | STATUS_CHANGE']
+  OldValues nvarchar(max) [null, note: 'Dữ liệu JSON cũ trước khi sửa']
+  NewValues nvarchar(max) [null, note: 'Dữ liệu JSON mới sau khi sửa']
+  CreatedBy UUID [null, note: 'Tài khoản người thực hiện hành động - FK -> tblAccount_v2.Id']
+  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm ghi nhật ký']
 
-    Indexes {
-      (TableName, RecordId)
-      (CreatedBy, CreatedAt)
-    }
+  Indexes {
+    (TableName, RecordId)
+    (CreatedBy, CreatedAt)
   }
+}
 
-  // ============================================================================
-  // QUAN HỆ KHÓA NGOẠI (FOREIGN KEY RELATIONSHIPS)
-  // ============================================================================
+// ============================================================================
+// QUAN HỆ KHÓA NGOẠI (FOREIGN KEY RELATIONSHIPS)
+// ============================================================================
 
-  // --- 1. Nhóm Auth & Organization ---
-  Ref FK_Customer_Account: tblCustomer_v2.AccountId > tblAccount_v2.Id
-  Ref FK_BusinessRole_Business: tblBusinessRole_v2.BusinessId > tblBusiness_v2.Id
-  Ref FK_RolePermission_Role: tblBusinessRolePermission_v2.RoleId > tblBusinessRole_v2.Id [delete: cascade]
-  Ref FK_BusinessMember_Business: tblBusinessMember_v2.BusinessId > tblBusiness_v2.Id [delete: cascade]
-  Ref FK_BusinessMember_Account: tblBusinessMember_v2.AccountId > tblAccount_v2.Id [delete: cascade]
-  Ref FK_MemberRole_Member: tblBusinessMemberRole_v2.MemberId > tblBusinessMember_v2.Id [delete: cascade]
-  Ref FK_MemberRole_Role: tblBusinessMemberRole_v2.RoleId > tblBusinessRole_v2.Id [delete: cascade]
+// --- 1. Nhóm Auth & Organization ---
+Ref FK_Customer_Account: tblCustomer_v2.AccountId > tblAccount_v2.Id
+Ref FK_BusinessRole_Business: tblBusinessRole_v2.BusinessId > tblBusiness_v2.Id
+Ref FK_RolePermission_Role: tblBusinessRolePermission_v2.RoleId > tblBusinessRole_v2.Id [delete: cascade]
+Ref FK_BusinessMember_Business: tblBusinessMember_v2.BusinessId > tblBusiness_v2.Id [delete: cascade]
+Ref FK_BusinessMember_Account: tblBusinessMember_v2.AccountId > tblAccount_v2.Id [delete: cascade]
+Ref FK_MemberRole_Member: tblBusinessMemberRole_v2.MemberId > tblBusinessMember_v2.Id [delete: cascade]
+Ref FK_MemberRole_Role: tblBusinessMemberRole_v2.RoleId > tblBusinessRole_v2.Id [delete: cascade]
 
-  // Sổ địa chỉ kết nối đa hình về Customer / Business
-  Ref FK_DeliveryAddress_Customer: tblDeliveryAddress_v2.ObjectId > tblCustomer_v2.Id
-  Ref FK_DeliveryAddress_Business: tblDeliveryAddress_v2.ObjectId > tblBusiness_v2.Id
+Ref FK_DeliveryAddress_Customer: tblDeliveryAddress_v2.ObjectId > tblCustomer_v2.Id
+Ref FK_DeliveryAddress_Business: tblDeliveryAddress_v2.ObjectId > tblBusiness_v2.Id
 
-  // --- 2. Nhóm Giỏ hàng & Đợt giao hàng ---
-  Ref: tblCartBatch_v2.CartId > tblCart_v2.Id [delete: restrict]
-  Ref: tblCartItem_v2.CartBatchId > tblCartBatch_v2.Id [delete: restrict]
-  Ref: tblCartBatch_v2.DeliveryAddressId > tblDeliveryAddress_v2.Id
+// --- 2. Nhóm Giỏ hàng ---
+Ref: tblCartDeliveryGroup_v2.CartId > tblCart_v2.Id [delete: cascade]
+Ref: tblCartDeliveryGroup_v2.DeliveryAddressId > tblDeliveryAddress_v2.Id
+Ref: tblCartItem_v2.CartDeliveryGroupId > tblCartDeliveryGroup_v2.Id [delete: cascade]
+Ref: tblCart_v2.ObjectId > tblCustomer_v2.Id
+Ref: tblCart_v2.ObjectId > tblBusiness_v2.Id
 
-  // Giỏ hàng kết nối đa hình về Customer / Business
-  Ref: tblCart_v2.ObjectId > tblCustomer_v2.Id
-  Ref: tblCart_v2.ObjectId > tblBusiness_v2.Id
+// --- 3. Nhóm Báo giá RFQ Đa vòng ---
+Ref: tblQuote_v2.OriginCartId > tblCart_v2.Id [delete: set null]
+Ref: tblQuote_v2.RequestAccountId > tblAccount_v2.Id
+Ref: tblQuote_v2.SalesAssigneeId > tblAccount_v2.Id
+Ref: tblQuote_v2.AcceptedRevisionId > tblQuoteRevision_v2.Id
+Ref: tblQuote_v2.AcceptedBy > tblAccount_v2.Id
+Ref: tblQuote_v2.ConvertedOrderId > tblOrder_v2.Id
+Ref: tblQuote_v2.ObjectId > tblCustomer_v2.Id
+Ref: tblQuote_v2.ObjectId > tblBusiness_v2.Id
 
-  // --- 3. Nhóm Báo giá RFQ ---
-  Ref: tblQuote_v2.CartId > tblCart_v2.Id [delete: restrict]
-  Ref: tblQuote_v2.AssignedTo > tblAccount_v2.Id
+Ref: tblQuoteRevision_v2.QuoteId > tblQuote_v2.Id [delete: cascade]
+Ref: tblQuoteRevision_v2.ActorAccountId > tblAccount_v2.Id
 
-  // --- 4. Nhóm Đơn hàng & Thanh toán ---
-  Ref: tblOrder_v2.CartId - tblCart_v2.Id [delete: restrict]
-  Ref: tblOrder_v2.QuoteId > tblQuote_v2.Id [delete: restrict]
-  Ref: tblOrder_v2.ObjectId > tblCustomer_v2.Id
-  Ref: tblOrder_v2.ObjectId > tblBusiness_v2.Id
+Ref: tblQuoteRevisionItem_v2.RevisionId > tblQuoteRevision_v2.Id [delete: cascade]
 
-  Ref: tblPayment_v2.OrderId > tblOrder_v2.Id [delete: restrict]
-  Ref: tblPayment_v2.PaymentMethodId > tblPaymentMethod_v2.Id [delete: restrict]
+Ref: tblQuoteEvent_v2.QuoteId > tblQuote_v2.Id [delete: cascade]
+Ref: tblQuoteEvent_v2.RevisionId > tblQuoteRevision_v2.Id
+Ref: tblQuoteEvent_v2.ActorAccountId > tblAccount_v2.Id
 
-  // --- 5. Nhóm Audit Logs ---
-  Ref FK_AuditLogs_Actor: tblAuditLogs_v2.CreatedBy > tblAccount_v2.Id
+// --- 4. Nhóm Đơn hàng, Dòng hàng & Giao vận ---
+Ref: tblOrder_v2.CartId > tblCart_v2.Id [delete: set null]
+Ref: tblOrder_v2.QuoteId > tblQuote_v2.Id [delete: restrict]
+Ref: tblOrder_v2.QuoteRevisionId > tblQuoteRevision_v2.Id [delete: restrict]
+Ref: tblOrder_v2.DeliveryAddressId > tblDeliveryAddress_v2.Id [delete: set null]
+Ref: tblOrder_v2.ObjectId > tblCustomer_v2.Id
+Ref: tblOrder_v2.ObjectId > tblBusiness_v2.Id
+
+Ref: tblOrderItem_v2.OrderId > tblOrder_v2.Id [delete: cascade]
+
+Ref: tblOrderShipment_v2.OrderId > tblOrder_v2.Id [delete: cascade]
+Ref: tblOrderShipmentItem_v2.ShipmentId > tblOrderShipment_v2.Id [delete: cascade]
+Ref: tblOrderShipmentItem_v2.OrderItemId > tblOrderItem_v2.Id [delete: restrict]
+
+// --- 5. Nhóm Thanh toán ---
+Ref: tblPayment_v2.OrderId > tblOrder_v2.Id [delete: restrict]
+Ref: tblPayment_v2.PaymentMethodId > tblPaymentMethod_v2.Id [delete: restrict]
+
+// --- 6. Nhóm Audit Logs ---
+Ref FK_AuditLogs_Actor: tblAuditLogs_v2.CreatedBy > tblAccount_v2.Id
