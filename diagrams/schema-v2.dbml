@@ -165,8 +165,8 @@ Table tblCart_v2 [headercolor: #2ca02c] {
   TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng số tiền ước tính cần thanh toán (SubTotal - TotalDiscount + Thuế tạm tính)']
   CreatedBy UUID [null, note: 'Tài khoản người tạo giỏ']
   UpdatedBy UUID [null, note: 'Tài khoản cập nhật giỏ gần nhất']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo giỏ hàng']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm sửa giỏ hàng gần nhất']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo giỏ hàng']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm sửa giỏ hàng gần nhất']
 
   Indexes {
     (BrandCode, ObjectType, ObjectId)
@@ -188,8 +188,8 @@ Table tblCartDeliveryGroup_v2 [headercolor: #2ca02c] {
   Notes nvarchar(500) [null, note: 'Ghi chú/yêu cầu riêng của khách (VD: giao giờ hành chính, gọi trước 30 phút)']
   CreatedBy UUID [null, note: 'Người tạo']
   UpdatedBy UUID [null, note: 'Người sửa']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo nhóm đợt giao']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo nhóm đợt giao']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm cập nhật']
 
   Indexes {
     CartId
@@ -207,8 +207,8 @@ Table tblCartItem_v2 [headercolor: #2ca02c] {
   TotalPrice decimal(18,2) [not null, default: 0, note: 'Thành tiền tạm tính của dòng = (UnitPrice - Discount) * Quantity * (1 + VatRate/100)']
   CreatedBy UUID [null, note: 'Người thêm món vào giỏ']
   UpdatedBy UUID [null, note: 'Người cập nhật số lượng']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm bỏ hàng vào giỏ']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm thay đổi số lượng/giá']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm bỏ hàng vào giỏ']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm thay đổi số lượng/giá']
 
   Indexes {
     (CartDeliveryGroupId, ProductId) [unique]
@@ -234,15 +234,15 @@ Table tblQuote_v2 [headercolor: #17becf] {
   CurrentRevisionId UUID [null, note: 'ID của vòng đàm phán mới nhất đang thương thảo']
   AcceptedRevisionId UUID [null, note: 'ID của vòng đàm phán chính thức được duyệt để đóng băng lên đơn - FK -> tblQuoteRevision_v2.Id']
   AcceptedBy UUID [null, note: 'Tài khoản người bấm nút duyệt chốt báo giá - FK -> tblAccount_v2.Id']
-  AcceptedAt datetime [null, note: 'Thời điểm duyệt chốt thỏa thuận giá']
+  AcceptedAt datetime2 [null, note: 'Thời điểm duyệt chốt thỏa thuận giá']
   
   ConvertedOrderId UUID [unique, null, note: 'ID đơn hàng sinh ra từ báo giá này (Quan hệ 1-1, chống tạo trùng đơn / Idempotency) - FK -> tblOrder_v2.Id']
-  ConvertedAt datetime [null, note: 'Thời điểm tạo thành công đơn hàng từ báo giá']
-  ExpiredAt datetime [null, note: 'Hạn cuối đóng phiên đàm phán nếu 2 bên không chốt được giá']
+  ConvertedAt datetime2 [null, note: 'Thời điểm tạo thành công đơn hàng từ báo giá']
+  ExpiredAt datetime2 [null, note: 'Hạn cuối đóng phiên đàm phán nếu 2 bên không chốt được giá']
   CreatedBy UUID [null, note: 'Người tạo']
   UpdatedBy UUID [null, note: 'Người cập nhật']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm mở phiên báo giá']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật trạng thái']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm mở phiên báo giá']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm cập nhật trạng thái']
 
   Indexes {
     QuoteCode
@@ -267,9 +267,9 @@ Table tblQuoteRevision_v2 [headercolor: #17becf] {
   EstimatedShippingFee decimal(18,2) [not null, default: 0, note: 'Cước vận chuyển chốt ở vòng đàm phán này']
   TotalAmount decimal(18,2) [not null, default: 0, note: 'Tổng giá trị cam kết thanh toán của vòng này = TaxableAmount + VatAmount + ShippingFee']
   Status varchar(30) [not null, default: 'SUBMITTED', note: 'Trạng thái riêng của vòng này: DRAFT (nháp) | SUBMITTED (đã gửi) | REJECTED (bị từ chối vòng này để trả giá tiếp) | ACCEPTED (được duyệt) | SUPERSEDED (bị thay thế bởi vòng mới hơn)']
-  ValidUntil datetime [null, note: 'Thời hạn hiệu lực của riêng mức giá trong vòng này (quá hạn giá không còn giá trị cam kết)']
+  ValidUntil datetime2 [null, note: 'Thời hạn hiệu lực của riêng mức giá trong vòng này (quá hạn giá không còn giá trị cam kết)']
   Notes nvarchar(1000) [null, note: 'Ghi chú đề xuất, điều kiện thương mại riêng của vòng này']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo vòng chào giá (Bất biến, không có UpdatedAt)']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo vòng chào giá (Bất biến, không có UpdatedAt)']
 
   Indexes {
     (QuoteId, RevisionNumber) [unique]
@@ -291,7 +291,7 @@ Table tblQuoteRevisionItem_v2 [headercolor: #17becf] {
   VatRate decimal(5,2) [not null, default: 0, note: 'Thuế suất VAT (%)']
   TotalPrice decimal(18,2) [not null, default: 0, note: 'Tổng tiền có thuế của mặt hàng trong vòng này']
   Notes nvarchar(500) [null, note: 'Yêu cầu quy cách gia công/đóng gói riêng cho món này (VD: xẻ đôi, đóng pallet)']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo dòng báo giá']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo dòng báo giá']
 
   Indexes {
     (RevisionId, ProductId)
@@ -307,7 +307,7 @@ Table tblQuoteEvent_v2 [headercolor: #17becf] {
   EventType varchar(50) [not null, note: 'Loại sự kiện: ASSIGNED (phân công sale), COUNTER_OFFER (trả giá), CHANGE_REQUEST (yêu cầu sửa SL/quy cách), PRICE_PROPOSED (báo giá mới), ACCEPTED (duyệt giá), REJECTED (từ chối vòng giá), EXPIRED (hết hạn), CANCELLED (hủy phiên), MESSAGE (trao đổi)']
   Message nvarchar(2000) [null, note: 'Nội dung trao đổi / Lý do từ chối vòng giá / Đề xuất chiết khấu thêm']
   AttachmentUrl nvarchar(1000) [null, note: 'Đường dẫn file đính kèm (hợp đồng nguyên tắc, bảng bóc tách khối lượng Excel, bản vẽ CAD...)']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm diễn ra hành động']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm diễn ra hành động']
 
   Indexes {
     (QuoteId, CreatedAt)
@@ -359,12 +359,12 @@ Table tblOrder_v2 [headercolor: #d62728] {
   
   Notes nvarchar(1000) [null, note: 'Ghi chú tổng thể của đơn hàng']
   CancelReason nvarchar(255) [null, note: 'Lý do hủy đơn hàng (nếu đơn bị hủy)']
-  ConfirmedAt datetime [null, note: 'Thời điểm duyệt đơn hàng']
-  CompletedAt datetime [null, note: 'Thời điểm hoàn tất đơn (đã giao xong + đã thanh toán)']
+  ConfirmedAt datetime2 [null, note: 'Thời điểm duyệt đơn hàng']
+  CompletedAt datetime2 [null, note: 'Thời điểm hoàn tất đơn (đã giao xong + đã thanh toán)']
   CreatedBy UUID [null, note: 'Tài khoản người tạo đơn']
   UpdatedBy UUID [null, note: 'Tài khoản sửa đơn']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo đơn']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm sửa đơn']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo đơn']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm sửa đơn']
 
   Indexes {
     (BrandCode, Status, PaymentStatus)
@@ -394,7 +394,7 @@ Table tblOrderItem_v2 [headercolor: #d62728] {
   VatAmount decimal(18,2) [not null, default: 0, note: 'Tiền thuế VAT của dòng snapshot']
   TotalPrice decimal(18,2) [not null, default: 0, note: 'Tổng tiền có thuế của dòng này = TaxableAmount + VatAmount']
   ItemNotes nvarchar(500) [null, note: 'Ghi chú kỹ thuật/yêu cầu riêng cho mặt hàng này']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo dòng hàng (Bất biến, không có UpdatedAt)']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo dòng hàng (Bất biến, không có UpdatedAt)']
 
   Indexes {
     (OrderId, ProductId)
@@ -416,13 +416,13 @@ Table tblOrderShipment_v2 [headercolor: #ff7f0e] {
   ShippingFee decimal(18,2) [not null, default: 0, note: 'Cước phí vận chuyển thực tế phát sinh của riêng kiện hàng/chuyến xe này']
   CodAmount decimal(18,2) [not null, default: 0, note: 'Số tiền thu hộ tiền mặt (COD) của riêng kiện này']
   Status varchar(30) [not null, default: 'PLANNED', note: 'Trạng thái vòng đời kiện hàng: PLANNED (lên lịch) | PREPARING (đang nhặt hàng) | READY_TO_SHIP (chờ xe) | SHIPPING (đang trên đường) | DELIVERED (giao thành công) | FAILED (thất bại) | CANCELLED (hủy)']
-  ShippedAt datetime [null, note: 'Thời điểm bốc hàng lên xe rời kho']
-  DeliveredAt datetime [null, note: 'Thời điểm khách ký biên bản nhận hàng thành công']
+  ShippedAt datetime2 [null, note: 'Thời điểm bốc hàng lên xe rời kho']
+  DeliveredAt datetime2 [null, note: 'Thời điểm khách ký biên bản nhận hàng thành công']
   Notes nvarchar(500) [null, note: 'Ghi chú điều vận xe tải, bốc xếp...']
   CreatedBy UUID [null, note: 'Người tạo lệnh xuất kho']
   UpdatedBy UUID [null, note: 'Người cập nhật']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm tạo lệnh xuất']
-  UpdatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm cập nhật hành trình']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm tạo lệnh xuất']
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm cập nhật hành trình']
 
   Indexes {
     (OrderId, Status)
@@ -436,7 +436,7 @@ Table tblOrderShipmentItem_v2 [headercolor: #ff7f0e] {
   ShipmentId UUID [not null, note: 'Thuộc kiện hàng nào - FK -> tblOrderShipment_v2.Id']
   OrderItemId UUID [not null, note: 'Tương ứng với dòng sản phẩm nào trong đơn hàng - FK -> tblOrderItem_v2.Id']
   Quantity decimal(10,2) [not null, default: 1, note: 'Số lượng thực tế xuất trong kiện này (hỗ trợ giao dần từng đợt theo tiến độ)']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm đóng gói sản phẩm vào kiện']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm đóng gói sản phẩm vào kiện']
 
   Indexes {
     (ShipmentId, OrderItemId) [unique]
@@ -459,8 +459,8 @@ Table tblPaymentMethod_v2 [headercolor: #9467bd] {
   IsActive bit [not null, default: 1]
   CreatedBy UUID [null]
   UpdatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
-  UpdatedAt datetime [not null, default: `getdate()`]
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`]
+  UpdatedAt datetime2 [not null, default: `sysutcdatetime()`]
 
   Indexes {
     MethodCode
@@ -477,10 +477,10 @@ Table tblPayment_v2 [headercolor: #9467bd] {
   PaymentType varchar(20) [not null, default: 'FULL', note: 'DEPOSIT (đặt cọc) | REMAINING (thanh toán nốt) | FULL (thanh toán 100%)']
   Amount decimal(18,2) [not null, note: 'Số tiền thanh toán của giao dịch này']
   Status varchar(20) [not null, default: 'PENDING', note: 'PENDING (chờ xử lý) | SUCCESS (thành công) | FAILED (thất bại)']
-  DueDate datetime [null, note: 'Hạn chót thanh toán (đối với đơn công nợ B2B)']
-  PaidAt datetime [null, note: 'Thời điểm tiền vào tài khoản thành công']
+  DueDate datetime2 [null, note: 'Hạn chót thanh toán (đối với đơn công nợ B2B)']
+  PaidAt datetime2 [null, note: 'Thời điểm tiền vào tài khoản thành công']
   CreatedBy UUID [null]
-  CreatedAt datetime [not null, default: `getdate()`]
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`]
 
   Indexes {
     OrderId
@@ -501,7 +501,7 @@ Table tblAuditLogs_v2 [headercolor: #7f7f7f] {
   OldValues nvarchar(max) [null, note: 'Dữ liệu JSON cũ trước khi sửa']
   NewValues nvarchar(max) [null, note: 'Dữ liệu JSON mới sau khi sửa']
   CreatedBy UUID [null, note: 'Tài khoản người thực hiện hành động - FK -> tblAccount_v2.Id']
-  CreatedAt datetime [not null, default: `getdate()`, note: 'Thời điểm ghi nhật ký']
+  CreatedAt datetime2 [not null, default: `sysutcdatetime()`, note: 'Thời điểm ghi nhật ký']
 
   Indexes {
     (TableName, RecordId)
