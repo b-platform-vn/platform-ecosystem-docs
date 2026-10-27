@@ -114,6 +114,7 @@ graph LR
 
 - [Customers](features/01-customers.md)
 - [Communications](features/02-communications.md)
+- [Customer Classification](features/03-customer-classification.md)
 
 ## Cross-Cutting Capabilities
 
