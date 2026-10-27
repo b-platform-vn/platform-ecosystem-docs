@@ -15,6 +15,7 @@
   - [CRM](products/crm/README.md)
     - [Customers](products/crm/features/01-customers.md)
     - [Communications](products/crm/features/02-communications.md)
+    - [Customer Classification](products/crm/features/03-customer-classification.md)
   - [B-Platform / Rocket Agents](products/bplatform-rocket-agents/README.md)
     - [Customer Pool Generating](products/bplatform-rocket-agents/features/01-customer-pool-generating.md)
 - **Customer-facing**
